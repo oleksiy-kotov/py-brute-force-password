@@ -24,20 +24,14 @@ def brute_force_worker(chunk_start: int,
                        chunk_size: int,
                        target_hashes: set,
                        result_queue: multiprocessing.Queue,
-                       stop_event: multiprocessing.Event) -> None:
+                       ) -> None:
     end = chunk_start + chunk_size
     for num in range(chunk_start, end):
-        if stop_event.is_set():
-            return
-
         password = f"{num:08d}"
         hashed = sha256_hash_str(password)
 
         if hashed in target_hashes:
-            result = (password, hashed)
-            result_queue.put(result)
-            stop_event.set()
-            return
+            result_queue.put((password, hashed))
 
 
 def brute_force_password() -> dict[str, str]:
@@ -48,7 +42,6 @@ def brute_force_password() -> dict[str, str]:
 
     manager = multiprocessing.Manager()
     result_queue = manager.Queue()
-    stop_event = manager.Event()
 
     target_hashes_set = set(PASSWORDS_TO_BRUTE_FORCE)
 
@@ -60,7 +53,7 @@ def brute_force_password() -> dict[str, str]:
         task = multiprocessing.Process(
             target=brute_force_worker,
             args=(start, current_chunk,
-                  target_hashes_set, result_queue, stop_event),
+                  target_hashes_set, result_queue),
         )
         processes.append(task)
         task.start()
@@ -69,7 +62,7 @@ def brute_force_password() -> dict[str, str]:
     found_results = {}
     while len(found_results) < len(PASSWORDS_TO_BRUTE_FORCE):
         if not result_queue.empty():
-            password,hashed = result_queue.get()
+            password, hashed = result_queue.get()
             if hashed not in found_results:
                 found_results[hashed] = password
                 print(f"Found {password}: {hashed}")
@@ -98,6 +91,6 @@ if __name__ == "__main__":
             print(f"{password} → {hashed}")
         print(f"Found: {len(results)} passwords")
     else:
-        print("Passwords not founded in range 00000000–99999999")
+        print("Passwords not found in range 00000000–99999999")
 
     print("Elapsed:", end_time - start_time)
