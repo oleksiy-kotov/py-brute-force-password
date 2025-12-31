@@ -40,7 +40,7 @@ def brute_force_worker(chunk_start: int,
             return
 
 
-def brute_force_password() -> None:
+def brute_force_password() -> dict[str, str]:
     total_combinations = 100_000_000
     num_processes = max(1, multiprocessing.cpu_count() - 1)
     chunk_size = total_combinations // num_processes
@@ -67,20 +67,19 @@ def brute_force_password() -> None:
         start += current_chunk
 
     found_results = {}
-    while len(found_results) < len(PASSWORDS_TO_BRUTE_FORCE) and (
-            any(p.is_alive() for p in processes) or not result_queue.empty()):
-        while not result_queue.empty():
-            password, hashed = result_queue.get()
+    while len(found_results) < len(PASSWORDS_TO_BRUTE_FORCE):
+        if not result_queue.empty():
+            password,hashed = result_queue.get()
             if hashed not in found_results:
                 found_results[hashed] = password
-                print(f"Знайдено: {password} → {hashed}")
+                print(f"Found {password}: {hashed}")
+
+        if all(not task.is_alive() for task in processes) and result_queue.empty():
+            break
 
         time.sleep(0.01)
 
-    stop_event.set()
     for task in processes:
-        if task.is_alive():
-            task.terminate()
         task.join()
 
     return found_results
